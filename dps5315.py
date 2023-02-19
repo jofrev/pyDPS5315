@@ -109,20 +109,22 @@ def parseResponse(msg):
             print('(ACK)', end='')
         sleep(.1) # needed by the DPS, without this it doesn't respond to subsequent data anymore
     elif msg_type == b'c': # control / limit values
-        mode = msg[1]
-        mv_limit = unpack('!H', msg[2:4])[0]
-        mi_limit = unpack('!H', msg[4:6])[0]
-        sv_limit = unpack('!H', msg[6:8])[0]
-        si_limit = unpack('!H', msg[8:10])[0]
+        data = unpack('!BHHHH', msg[1:])
+        mode = data[0]
+        mv_limit = data[1] * 0.01
+        mi_limit = data[2] * 0.001
+        sv_limit = data[3] * 0.01
+        si_limit = data[4] * 0.001
     elif msg_type == b'i': # status data
-        mode = msg[1]
-        control_mode = msg[2]
-        mv = unpack('!H', msg[3:5])[0] * 0.01
-        mi = unpack('!H', msg[5:7])[0] * 0.001
-        sv = unpack('!H', msg[7:9])[0] * 0.01
-        si = unpack('!H', msg[9:11])[0] * 0.001
-        temp_endstufe = msg[11]
-        temp_trafo = msg[12]
+        data = unpack('!BBHHHHBB', msg[1:])
+        mode = data[0]
+        control_mode = data[1]
+        mv = data[2] * 0.01
+        mi = data[3] * 0.001
+        sv = data[4] * 0.01
+        si = data[5] * 0.001
+        temp_endstufe = data[6]
+        temp_trafo = data[7]
     elif msg_type == b'v': # version
         master_version = msg[1]
         slave_version = msg[2]
