@@ -2,15 +2,15 @@ from __future__ import print_function
 import crcmod
 import serial
 from time import sleep
-from struct import pack
+from struct import pack, unpack
 import threading
 
 
 crc16 = crcmod.mkCrcFun(poly=0x18005, rev=False, initCrc=0x800D, xorOut=0x0000)
 
-STX = '\x02' # Start symbol
-ETX = '\x03' # End symbol
-ACK = '\x06'
+STX = b'\x02' # Start symbol
+ETX = b'\x03' # End symbol
+ACK = b'\x06'
 
 MODE_SERIES           = 0
 MODE_DUAL             = 1
@@ -63,102 +63,100 @@ class SerialReader(threading.Thread):
         self.exitFlag = True
 
 
-def raw2hexstring(bytestring, separator=''):
-    return separator.join('%X'%ord(c) for c in bytestring)
+def raw2hexstring(bytestring: bytes, separator=b':'):
+    return bytestring.hex(separator, 1)
 
-def sendInstruction(instruction):
+def sendInstruction(instruction: bytes):
     if DEBUG:
         print('TX: ', end='')
         print(instruction)
     instruction += pack('!H', crc16(instruction))
-    instruction = instruction.replace(STX, '\x10\x82').replace(ETX, '\x10\x83')
+    instruction = instruction.replace(STX, b'\x10\x82').replace(ETX, b'\x10\x83')
     line = STX + instruction + ETX
     ser.write(line)
 
 def receiveResponse():
     sleep(0.1)
-    frame = ''
+    frame = b''
     while True:
         ch = ser.read()
         frame += ch
         if ch == ETX:
             break
     
-    msg = frame.replace(STX, '').replace(ETX, '').replace('\x10\x82', STX).replace('\x10\x83', ETX)
-    if msg[0] == ACK:
+    msg = frame.replace(STX, b'').replace(ETX, b'').replace(b'\x10\x82', STX).replace(b'\x10\x83', ETX)
+    if msg.startswith(ACK):
         return msg
     else:
         crc = crc16(msg[:-2])
         crc_ok = (pack('!H', crc) == msg[-2:])
         if not crc_ok:
-            print('(CRC ERROR)', raw2hexstring(msg, ' '), ', %X %X'%(ord(msg[-2]), ord(msg[-1])), ', %X'%crc)
-            return ''
+            print('(CRC ERROR)', raw2hexstring(msg), ', %X %X'%(msg[-2], msg[-1]), ', %X'%crc)
+            return b''
         return msg[:-2]
-
-def raw2int(bytestring):
-    return int(raw2hexstring(bytestring), 16)
 
 def parseResponse(msg):
     global mode, control_mode, mv, mi, sv, si, mv_limit, mi_limit, sv_limit, si_limit, temp_endstufe, temp_trafo, master_version, slave_version
 
     if DEBUG:
-        print('RX: ', raw2hexstring(msg))
+        print('RX: ', msg)
                 
-    msg_type = msg[0]
-    if msg_type == 'x': # Init
+    msg_type = msg[0:1]
+    if msg_type == b'x': # Init
         pass
     elif msg_type == ACK:
         if DEBUG:
             print('(ACK)', end='')
-    elif msg_type == 'c': # control / limit values
-        mode = raw2int(msg[1])
-        mv_limit = raw2int(msg[2:4])
-        mi_limit = raw2int(msg[4:6])
-        sv_limit = raw2int(msg[6:8])
-        si_limit = raw2int(msg[8:10])
-    elif msg_type == 'i': # status data
-        mode = raw2int(msg[1])
-        control_mode = raw2int(msg[2])
-        mv = raw2int(msg[3:5])*0.01
-        mi = raw2int(msg[5:7])*0.001
-        sv = raw2int(msg[7:9])*0.01
-        si = raw2int(msg[9:11])*0.001
-        temp_endstufe = raw2int(msg[11])
-        temp_trafo = raw2int(msg[12])
-    elif msg_type == 'v': # version
+        sleep(.1) # needed by the DPS, without this it doesn't respond to subsequent data anymore
+    elif msg_type == b'c': # control / limit values
+        mode = msg[1]
+        mv_limit = unpack('!H', msg[2:4])[0]
+        mi_limit = unpack('!H', msg[4:6])[0]
+        sv_limit = unpack('!H', msg[6:8])[0]
+        si_limit = unpack('!H', msg[8:10])[0]
+    elif msg_type == b'i': # status data
+        mode = msg[1]
+        control_mode = msg[2]
+        mv = unpack('!H', msg[3:5])[0] * 0.01
+        mi = unpack('!H', msg[5:7])[0] * 0.001
+        sv = unpack('!H', msg[7:9])[0] * 0.01
+        si = unpack('!H', msg[9:11])[0] * 0.001
+        temp_endstufe = msg[11]
+        temp_trafo = msg[12]
+    elif msg_type == b'v': # version
         master_version = msg[1]
         slave_version = msg[2]
-    elif msg_type == 'm': # mode
+    elif msg_type == b'm': # mode
         mode = msg[1]
     else: 
         print('unknown message: ', raw2hexstring(msg))
 
 def setMode(m):
-    sendInstructionAndReceiveResponse('N' + pack('b', m)) # set mode
+    sendInstructionAndReceiveResponse(b'N' + pack('b', m)) # set mode
 
 def initRemote():
-    sendInstructionAndReceiveResponse('X')
+    sendInstructionAndReceiveResponse(b'X')
 
 def getControlValues():
-    sendInstructionAndReceiveResponse('C')
+    sendInstructionAndReceiveResponse(b'C')
 
 def setControlValues(mv_lim=mv_limit, mi_lim=mi_limit, sv_lim=sv_limit, si_lim=si_limit):
     mv_lim = int(mv_lim*100)
     mi_lim = int(mi_lim*1000)
     sv_lim = int(sv_lim*100)
     si_lim = int(si_lim*1000)
-    sendInstructionAndReceiveResponse('T' + pack('!HHHH', mv_lim, mi_lim, sv_lim, si_lim))
+    sendInstructionAndReceiveResponse(b'T' + pack('!HHHH', mv_lim, mi_lim, sv_lim, si_lim))
 
 def getVersion():
-    sendInstructionAndReceiveResponse('V')
+    sendInstructionAndReceiveResponse(b'V')
     return master_version, slave_version
 
 def getData():
-    sendInstructionAndReceiveResponse('I')
+    sendInstructionAndReceiveResponse(b'I')
     return (mode,control_mode, mv, mi, sv, si, temp_endstufe, temp_trafo)
 
 def getMode():
-    sendInstructionAndReceiveResponse('M')
+    sendInstructionAndReceiveResponse(b'M')
     return mode
 
 def setMasterSlaveMode():
@@ -185,7 +183,7 @@ def enableSlave():
 def disableSlave():
     setMode(mode | MODE_SLAVE_STANBY_ON)
 
-def sendInstructionAndReceiveResponse(instruction):
+def sendInstructionAndReceiveResponse(instruction: bytes):
     sendInstruction(instruction)
     msg = receiveResponse()
     parseResponse(msg)
@@ -197,7 +195,7 @@ def init():
     getVersion()
     setMode( MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANBY_ON | MODE_SLAVE_STANBY_ON ) # set mode
 
-def connect(port='/dev/ttyUSB0'):
+def connect(port='COM6'):
     global ser, thread
     # connect and disconnect (workaround for ch340 chip bug under linux)
     ser = serial.Serial(port, baudrate=9600)
@@ -228,6 +226,6 @@ if __name__ == '__main__':
     try:
         while True:
             printData()
-            sleep(0.2)
+            sleep(0.5)
     except KeyboardInterrupt:
         disconnect()
