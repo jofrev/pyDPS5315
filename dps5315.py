@@ -12,15 +12,15 @@ STX = b'\x02' # Start symbol
 ETX = b'\x03' # End symbol
 ACK = b'\x06'
 
-MODE_SERIES           = 0
-MODE_DUAL             = 1
-MODE_MASTER_SLAVE     = 3
-MODE_SLAVE_STANBY_ON  = 4
-MODE_MASTER_STANBY_ON = 8
-MODE_REMOTE           = 16
-MODE_LOCK             = 32
-MODE_CALIBRATION      = 64 #not completely shure this is calibration
-MODE_ERROR            = 128
+MODE_SERIES             = 0
+MODE_DUAL               = 1
+MODE_MASTER_SLAVE       = 3
+MODE_SLAVE_STANDBY_ON   = 4
+MODE_MASTER_STANDBY_ON  = 8
+MODE_REMOTE             = 16
+MODE_LOCK               = 32
+MODE_CALIBRATION        = 64    # not completely sure this is calibration
+MODE_ERROR              = 128
 
 CONTROL_MV = 1
 CONTROL_MI = 2
@@ -163,27 +163,27 @@ def getMode():
 
 def setMasterSlaveMode():
     if not (mode & MODE_MASTER_SLAVE):
-        setMode(MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANBY_ON | MODE_SLAVE_STANBY_ON)
+        setMode(MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
 
 def setDualMode():
     if not (mode & MODE_DUAL):
-        setMode(MODE_REMOTE | MODE_DUAL | MODE_MASTER_STANBY_ON | MODE_SLAVE_STANBY_ON)
+        setMode(MODE_REMOTE | MODE_DUAL | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
 
 def setSeriesMode():
     if not (mode & MODE_SERIES):
-        setMode(MODE_REMOTE | MODE_SERIES | MODE_MASTER_STANBY_ON | MODE_SLAVE_STANBY_ON)
+        setMode(MODE_REMOTE | MODE_SERIES | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
 
 def enableMaster():
-    setMode(mode & ~MODE_MASTER_STANBY_ON)
+    setMode(mode & ~MODE_MASTER_STANDBY_ON)
 
 def disableMaster():
-    setMode(mode | MODE_MASTER_STANBY_ON)
+    setMode(mode | MODE_MASTER_STANDBY_ON)
 
 def enableSlave():
-    setMode(mode & ~MODE_SLAVE_STANBY_ON)
+    setMode(mode & ~MODE_SLAVE_STANDBY_ON)
 
 def disableSlave():
-    setMode(mode | MODE_SLAVE_STANBY_ON)
+    setMode(mode | MODE_SLAVE_STANDBY_ON)
 
 def sendInstructionAndReceiveResponse(instruction: bytes):
     sendInstruction(instruction)
@@ -195,7 +195,7 @@ def init():
     initRemote()
     getControlValues()
     getVersion()
-    setMode( MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANBY_ON | MODE_SLAVE_STANBY_ON ) # set mode
+    setMode( MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON ) # set mode
 
 def connect(port='COM6'):
     global ser, thread
