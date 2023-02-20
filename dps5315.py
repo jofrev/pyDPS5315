@@ -1,4 +1,5 @@
 from __future__ import print_function
+import enum
 import crcmod
 import serial
 from time import sleep
@@ -12,22 +13,24 @@ STX = b'\x02' # Start symbol
 ETX = b'\x03' # End symbol
 ACK = b'\x06'
 
-MODE_SERIES             = 0
-MODE_DUAL               = 1
-MODE_MASTER_SLAVE       = 3
-MODE_SLAVE_STANDBY_ON   = 4
-MODE_MASTER_STANDBY_ON  = 8
-MODE_REMOTE             = 16
-MODE_LOCK               = 32
-MODE_CALIBRATION        = 64    # not completely sure this is calibration
-MODE_ERROR              = 128
+class Mode(enum.IntFlag):
+    SERIES              = 0x00
+    DUAL                = 0x01
+    MASTER_SLAVE        = 0x03
+    SLAVE_STANDBY_ON    = 0x04
+    MASTER_STANDBY_ON   = 0x08
+    REMOTE              = 0x10
+    LOCK                = 0x20
+    CALIBRATION         = 0x40   # not completely sure this is calibration
+    ERROR               = 0x80
 
-CONTROL_MV = 1
-CONTROL_MI = 2
-CONTROL_SV = 4
-CONTROL_SI = 8
-CONTROL_OVERTEMP_ENDSTUFE = 16
-CONTROL_OVERTEMP_TRAFO = 32
+class Control(enum.IntFlag):
+    MASTER_VOLTAGE  = 0x01
+    MASTER_CURRENT  = 0x02
+    SLAVE_VOLTAGE   = 0x04
+    SLAVE_CURRENT   = 0x08
+    OVERTEMP_OUTPUT = 0x10
+    OVERTEMP_TRAFO  = 0x20
 
 master_version = None
 slave_version = None
@@ -162,28 +165,28 @@ def getMode():
     return mode
 
 def setMasterSlaveMode():
-    if not (mode & MODE_MASTER_SLAVE):
-        setMode(MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
+    if not (mode & Mode.MASTER_SLAVE):
+        setMode(Mode.REMOTE | Mode.MASTER_SLAVE | Mode.MASTER_STANDBY_ON | Mode.SLAVE_STANDBY_ON)
 
 def setDualMode():
-    if not (mode & MODE_DUAL):
-        setMode(MODE_REMOTE | MODE_DUAL | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
+    if not (mode & Mode.DUAL):
+        setMode(Mode.REMOTE | Mode.DUAL | Mode.MASTER_STANDBY_ON | Mode.SLAVE_STANDBY_ON)
 
 def setSeriesMode():
-    if not (mode & MODE_SERIES):
-        setMode(MODE_REMOTE | MODE_SERIES | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON)
+    if not (mode & Mode.SERIES):
+        setMode(Mode.REMOTE | Mode.SERIES | Mode.MASTER_STANDBY_ON | Mode.SLAVE_STANDBY_ON)
 
 def enableMaster():
-    setMode(mode & ~MODE_MASTER_STANDBY_ON)
+    setMode(mode & ~Mode.MASTER_STANDBY_ON)
 
 def disableMaster():
-    setMode(mode | MODE_MASTER_STANDBY_ON)
+    setMode(mode | Mode.MASTER_STANDBY_ON)
 
 def enableSlave():
-    setMode(mode & ~MODE_SLAVE_STANDBY_ON)
+    setMode(mode & ~Mode.SLAVE_STANDBY_ON)
 
 def disableSlave():
-    setMode(mode | MODE_SLAVE_STANDBY_ON)
+    setMode(mode | Mode.SLAVE_STANDBY_ON)
 
 def sendInstructionAndReceiveResponse(instruction: bytes):
     sendInstruction(instruction)
@@ -195,7 +198,7 @@ def init():
     initRemote()
     getControlValues()
     getVersion()
-    setMode( MODE_REMOTE | MODE_MASTER_SLAVE | MODE_MASTER_STANDBY_ON | MODE_SLAVE_STANDBY_ON ) # set mode
+    setMode(Mode.REMOTE | Mode.MASTER_SLAVE | Mode.MASTER_STANDBY_ON | Mode.SLAVE_STANDBY_ON) # set mode
 
 def connect(port='COM6'):
     global ser, thread
