@@ -2,12 +2,17 @@ from __future__ import print_function
 
 import dataclasses
 import enum
+import logging
+import sys
 import threading
 from struct import pack, unpack
 from time import sleep
 
 import crcmod
 import serial
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 crc16 = crcmod.mkCrcFun(poly=0x18005, rev=False, initCrc=0x800D, xorOut=0x0000)
 
@@ -138,9 +143,7 @@ class Dps5315:
         self.parseResponse(msg)
 
     def sendInstruction(self, instruction: bytes):
-        if DEBUG:
-            print("TX: ", end="")
-            print(instruction)
+        logger.debug("TX: %s", instruction)
         instruction += pack("!H", crc16(instruction))
         instruction = instruction.replace(STX, b"\x10\x82").replace(ETX, b"\x10\x83")
         line = STX + instruction + ETX
@@ -177,15 +180,13 @@ class Dps5315:
             return msg[:-2]
 
     def parseResponse(self, msg):
-        if DEBUG:
-            print("RX: ", msg)
+        logger.debug("RX: %s", msg)
 
         msg_type = msg[0:1]
         if msg_type == b"x":  # Init
             pass
         elif msg_type == ACK:
-            if DEBUG:
-                print("(ACK)", end="")
+            logger.debug("(ACK)")
             sleep(
                 0.1
             )  # needed by the DPS, without this it doesn't respond to subsequent data anymore
@@ -400,10 +401,10 @@ def printData():
     )
 
 
-DEBUG = True
-DEBUG = False
-
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1].startswith("-v"):
+        logger.setLevel(logging.DEBUG)
+
     connect()  # adjust here if you use a none default port
 
     try:
