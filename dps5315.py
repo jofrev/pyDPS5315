@@ -93,15 +93,15 @@ class _Channel:
         """En-/Disable the channel's output"""
         self.config.standby = not en
         if en:
-            self.dps.setMode(self.dps.mode & ~Mode.STANDBY_ON)
+            self.dps.set_mode(self.dps.mode & ~Mode.STANDBY_ON)
         else:
-            self.dps.setMode(self.dps.mode | Mode.STANDBY_ON)
+            self.dps.set_mode(self.dps.mode | Mode.STANDBY_ON)
 
-    def setControlValues(self, voltage, current):
+    def set_control_values(self, voltage, current):
         """Change the channel's output limits"""
         self.config.limits.voltage = voltage
         self.config.limits.current = current
-        self.dps.setControlValues()
+        self.dps.set_control_values()
 
 
 class MasterChannel(_Channel):
@@ -137,19 +137,19 @@ class Dps5315:
         ser = serial.Serial(port, baudrate=115200, timeout=1)
         return Dps5315(ser)
 
-    def sendInstructionAndReceiveResponse(self, instruction: bytes):
-        self.sendInstruction(instruction)
-        msg = self.receiveResponse()
-        self.parseResponse(msg)
+    def send_instruction_and_receive_response(self, instruction: bytes):
+        self.send_instruction(instruction)
+        msg = self.receive_response()
+        self.parse_response(msg)
 
-    def sendInstruction(self, instruction: bytes):
+    def send_instruction(self, instruction: bytes):
         logger.debug("TX: %s", instruction)
         instruction += pack("!H", crc16(instruction))
         instruction = instruction.replace(STX, b"\x10\x82").replace(ETX, b"\x10\x83")
         line = STX + instruction + ETX
         self.ser.write(line)
 
-    def receiveResponse(self):
+    def receive_response(self):
         sleep(0.1)
         frame = b""
         while True:
@@ -179,7 +179,7 @@ class Dps5315:
                 return b""
             return msg[:-2]
 
-    def parseResponse(self, msg):
+    def parse_response(self, msg):
         logger.debug("RX: %s", msg)
 
         msg_type = msg[0:1]
@@ -226,30 +226,30 @@ class Dps5315:
 
         Note: This method needs to be called before accessing any of the other methods or members
         """
-        self.initRemote()
-        self.getControlValues()
-        self.getVersion()
-        self.getData()
-        self.setMode(
+        self.init_remote()
+        self.get_control_values()
+        self.get_version()
+        self.get_data()
+        self.set_mode(
             Mode.REMOTE
             | Mode.MASTER_SLAVE
             | Mode.MASTER_STANDBY_ON
             | Mode.SLAVE_STANDBY_ON
         )  # set mode
 
-    def initRemote(self):
+    def init_remote(self):
         """Initialize remote control"""
-        self.sendInstructionAndReceiveResponse(b"X")
+        self.send_instruction_and_receive_response(b"X")
 
-    def getVersion(self):
+    def get_version(self):
         """Read FW version of both channel's uCs"""
-        self.sendInstructionAndReceiveResponse(b"V")
+        self.send_instruction_and_receive_response(b"V")
 
-    def getControlValues(self):
+    def get_control_values(self):
         """Read mode register and current and voltage limits of both channels"""
-        self.sendInstructionAndReceiveResponse(b"C")
+        self.send_instruction_and_receive_response(b"C")
 
-    def setControlValues(
+    def set_control_values(
         self,
         master_voltage=None,
         master_current=None,
@@ -269,62 +269,62 @@ class Dps5315:
         master_current = int(self.master.config.limits.current * 1000)
         slave_voltage = int(self.slave.config.limits.voltage * 100)
         slave_current = int(self.slave.config.limits.current * 1000)
-        self.sendInstructionAndReceiveResponse(
+        self.send_instruction_and_receive_response(
             b"T"
             + pack(
                 "!HHHH", master_voltage, master_current, slave_voltage, slave_current
             )
         )
-        self.getControlValues()
+        self.get_control_values()
 
-    def getMode(self):
+    def get_mode(self):
         """Read the mode register"""
-        self.sendInstructionAndReceiveResponse(b"M")
+        self.send_instruction_and_receive_response(b"M")
 
-    def setMode(self, mode):
+    def set_mode(self, mode):
         """Write the mode register"""
-        self.sendInstructionAndReceiveResponse(b"N" + pack("b", mode))  # set mode
-        self.getMode()
+        self.send_instruction_and_receive_response(b"N" + pack("b", mode))  # set mode
+        self.get_mode()
 
-    def setMasterSlaveMode(self):
+    def set_master_slave_mode(self):
         """Switch to Master/Slave mode
 
         Note: This puts both channels into standby
         """
         if not (self.mode & Mode.MASTER_SLAVE):
-            self.setMode(
+            self.set_mode(
                 Mode.REMOTE
                 | Mode.MASTER_SLAVE
                 | Mode.MASTER_STANDBY_ON
                 | Mode.SLAVE_STANDBY_ON
             )
 
-    def setDualMode(self):
+    def set_dual_mode(self):
         """Switch to dual/parallel mode
 
         Note: This puts both channels into standby
         """
         if not (self.mode & Mode.DUAL):
-            self.setMode(
+            self.set_mode(
                 Mode.REMOTE | Mode.DUAL | Mode.MASTER_STANDBY_ON | Mode.SLAVE_STANDBY_ON
             )
 
-    def setSeriesMode(self):
+    def set_series_mode(self):
         """Switch to series mode
 
         Note: This puts both channels into standby
         """
         if not (self.mode & Mode.SERIES):
-            self.setMode(
+            self.set_mode(
                 Mode.REMOTE
                 | Mode.SERIES
                 | Mode.MASTER_STANDBY_ON
                 | Mode.SLAVE_STANDBY_ON
             )
 
-    def getData(self):
+    def get_data(self):
         """Read mode and control mode register as well as output current and voltage of both channels and temperature"""
-        self.sendInstructionAndReceiveResponse(b"I")
+        self.send_instruction_and_receive_response(b"I")
 
 
 class SerialReader(threading.Thread):
@@ -337,7 +337,7 @@ class SerialReader(threading.Thread):
     def run(self):
         global dps
         while True:
-            dps.getData()
+            dps.get_data()
             sleep(0.2)
             if self.exitFlag:
                 break
@@ -371,7 +371,7 @@ def disconnect():
     ser.close()
 
 
-def printData():
+def print_data():
     global dps
     print(
         "mode: ",
@@ -409,7 +409,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            printData()
+            print_data()
             sleep(0.5)
     except KeyboardInterrupt:
         disconnect()
