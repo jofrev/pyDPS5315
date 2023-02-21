@@ -68,7 +68,25 @@ class ChannelConfig:
     standby: bool = None
     limits: ChannelData = dataclasses.field(default_factory=ChannelData)
 
+class Register:
+    def __init__(self, init_val:int=0):
+        self._value = init_val
 
+    def set(self, mask: int):
+        """Set certain bits to 1"""
+        self._value |= mask
+
+    def clear(self, mask: int):
+        """Set certain bits to 0"""
+        self._value &= ~mask
+
+    def is_set(self, mask: int, all=False) -> bool:
+        """Check if any (or all) given bits are set"""
+        if not all:
+            return bool(self._value & mask)
+        else:
+            return (self._value & mask) == mask
+        
 class _Channel:
     """Base class for channels
 
